@@ -3,12 +3,13 @@
 #include <stdint.h>
 
 static const uint64_t CANARY = 0xDEADBEEF;
+
 typedef enum{
     STACK_OK = 0,
     STACK_OVERFLOW = 1 << 0,
-    STACK_NULL = 2 << 1,
+    STACK_NULL = 1 << 1,
     // TODO: add more error types
- } error_types;
+} error_types;
 
 typedef struct{
     uint64_t left_canary;
@@ -28,8 +29,15 @@ int stack_push(Stack *stack, int value);
 void auto_resize(Stack *stack);
 void stack_dump(Stack *stack);
 
+uint64_t *left_data_canary(Stack *stack);
+uint64_t *right_data_canary(Stack *stack);
+
 int main(void){
     Stack *stack = stack_build();
+    if (!stack) {
+        printf("ERROR: STACK BUILD FAILED\n");
+        return 1;
+    }
 
     stack_destroy(stack);
     return 0;
@@ -38,6 +46,9 @@ int main(void){
 Stack *stack_build(void){
     Stack *stack = calloc(1, sizeof(Stack));
     if (stack == NULL) return NULL;
+
+    stack->left_canary  = CANARY;
+    stack->right_canary = CANARY;
 
     stack->data = calloc(1, sizeof(int));
     if (stack->data == NULL) {
@@ -68,7 +79,7 @@ int stack_pop(Stack *stack){
     }
 
     if (stack->size == 0){
-        printf("ERROR: POP FROM EMRPTY STACK\n");
+        printf("ERROR: POP FROM EMPTY STACK\n");
         return 1;
     }
 
@@ -76,7 +87,7 @@ int stack_pop(Stack *stack){
     stack->size--;
 
     if (stack->size == 0){
-        stack->top = stack->data - 1;                 // stack is empty
+        stack->top = stack->data;                 
     } else{
         stack->top = stack->data + (stack->size - 1);
     }
@@ -134,7 +145,7 @@ void auto_resize(Stack *stack){
     stack->capacity = new_capacity;
 
     if (stack->size == 0){
-        stack->top = stack->data - 1;
+        stack->top = stack->data;                 
     } else{
         stack->top = stack->data + (stack->size - 1);
     }
@@ -146,6 +157,10 @@ void stack_dump(Stack *stack){
     if (stack == NULL){
         printf("\tERROR: STACK POINTER IS NULL\n}\n");
         return;
+    }
+
+    if (stack->left_canary != CANARY || stack->right_canary != CANARY) {
+        printf("\tERROR: STACK STRUCT CANARY CORRUPTED\n");
     }
 
     printf("\tdata = %p\n\ttop = %p\n\tsize = %zu\n\tcapacity = %zu\n",
@@ -173,7 +188,7 @@ uint64_t *left_data_canary(Stack *stack){
         return NULL;
     }
 
-    return((uint64_t*)stack->data) - 1;
+    return ((uint64_t*)stack->data) - 1;
 }
 
 uint64_t *right_data_canary(Stack *stack){
@@ -185,5 +200,5 @@ uint64_t *right_data_canary(Stack *stack){
         return NULL;
     }
 
-    return(uint64_t*)stack->data + stack->capacity;
+    return (uint64_t*)stack->data + stack->capacity;
 }
